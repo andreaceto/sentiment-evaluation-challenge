@@ -14,8 +14,8 @@ from src.utils import load_training_data, deduplicate_reviews
 from src.models import build_model
 from src.config import RANDOM_STATE, TEST_SIZE
 
-FIRSTNAME = "Andrea"
-LASTNAME = "Aceto"
+FIRSTNAME = "andrea"
+LASTNAME = "aceto"
 
 
 def main():

@@ -3,8 +3,8 @@ from pathlib import Path
 
 from src.utils import load_eval_data
 
-FIRSTNAME = "Andrea"
-LASTNAME = "Aceto"
+FIRSTNAME = "andrea"
+LASTNAME = "aceto"
 
 
 def main():
