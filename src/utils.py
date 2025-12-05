@@ -2,26 +2,25 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import FunctionTransformer
 import pandas as pd
-from pathlib import Path
+import os
 
 
 # ============================================================
 # Basic Utilities
 # ============================================================
-def load_training_data(path: str | Path) -> pd.DataFrame:
-    return pd.read_excel(path)
+def load_training_data() -> pd.DataFrame:
+    return pd.read_excel(os.path.join("data", "raw", "Allegato 1 - data_classification.xlsx"))
 
 
-def load_eval_data(path: str | Path) -> pd.DataFrame:
-    return pd.read_excel(path)
+def load_eval_data() -> pd.DataFrame:
+    return pd.read_excel(os.path.join("data", "raw", "Allegato 2 - data_evaluation.xlsx"))
 
 # ============================================================
 # Data Preprocessing Utilities
 # ============================================================
-
-def clean_text_ml(text: str) -> str:
+def clean_text(text: str) -> str:
     """
-    Minimal cleaning ONLY for classical ML workflows:
+    Minimal cleaning for classical ML workflows:
     - lowercase
     - strip whitespace
     - normalize spaces
@@ -36,59 +35,22 @@ def clean_text_ml(text: str) -> str:
     return text
 
 
-def build_cleaner_ml():
+def build_cleaner():
     """
-    Returns a sklearn FunctionTransformer that applies clean_text_ml.
+    Returns a sklearn FunctionTransformer that applies clean_text.
     Suitable for TF–IDF pipelines.
     """
     return FunctionTransformer(
-        lambda x: [clean_text_ml(t) for t in x],
+        lambda x: [clean_text(t) for t in x],
         validate=False
     )
-
-def clean_text_transformer(text: str) -> str:
-    """
-    Very light cleaning for Transformers:
-    - strip whitespace ONLY
-    - DO NOT lowercase unless model is uncased
-    - DO NOT remove punctuation / stopwords
-    """
-    if not isinstance(text, str):
-        return ""
-    return text.strip()
-
-
-def build_cleaner_transformer():
-    """
-    A FunctionTransformer that preserves the raw text (strip only).
-    """
-    return FunctionTransformer(
-        lambda x: [clean_text_transformer(t) for t in x],
-        validate=False
-    )
-
-
-def get_cleaner(mode: str):
-    """
-    Returns the appropriate cleaning function/transformer.
-
-    mode="ml" → cleaning for TF–IDF
-    mode="transformer" → minimal cleaning for BERT-like models
-    """
-    if mode == "ml":
-        return build_cleaner_ml()
-    elif mode == "transformer":
-        return build_cleaner_transformer()
-    else:
-        raise ValueError(f"Unknown mode: {mode}")
 
 
 def deduplicate_reviews(df: pd.DataFrame, text_col: str, label_col: str) -> pd.DataFrame:
     """
     Updated deduplication pipeline:
 
-    1. Clean text using ML-cleaning (lowercase + normalize);
-       this ensures identical texts compare correctly.
+    1. Clean text (lowercase + normalize);
     2. Group by cleaned text.
     3. If group labels conflict → drop the entire group.
     4. If group labels are consistent → keep ONE copy.
@@ -98,7 +60,7 @@ def deduplicate_reviews(df: pd.DataFrame, text_col: str, label_col: str) -> pd.D
 
     # Step 1 — Clean the text BEFORE grouping
     df = df.copy()
-    df["_clean_text"] = df[text_col].apply(clean_text_ml)
+    df["_clean_text"] = df[text_col].apply(clean_text)
 
     keep_indices = []
 
@@ -107,7 +69,7 @@ def deduplicate_reviews(df: pd.DataFrame, text_col: str, label_col: str) -> pd.D
         unique_labels = group[label_col].unique()
 
         if len(unique_labels) > 1:
-            # Conflict → remove whole group
+            # Conflict results in removing whole group
             continue
 
         # Keep one example
@@ -118,7 +80,9 @@ def deduplicate_reviews(df: pd.DataFrame, text_col: str, label_col: str) -> pd.D
 
     return cleaned_df
 
-
+# ============================================================
+# TF–IDF Utilities
+# ============================================================
 def build_tfidf_vectorizer(
     ngram_range=(1,2),
     min_df=3,
@@ -129,10 +93,9 @@ def build_tfidf_vectorizer(
     Builds a TF–IDF vectorizer using ML-cleaning rules.
     """
     return TfidfVectorizer(
-        preprocessor=clean_text_ml,      # clean text BEFORE tokenizing
+        preprocessor=clean_text,      # clean text BEFORE tokenizing
         ngram_range=ngram_range,
         min_df=min_df,
         max_df=max_df,
         max_features=max_features
     )
-
